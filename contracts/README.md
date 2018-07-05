@@ -1,0 +1,1 @@
+Example: https://blog.gridplus.io/simple-security-with-shamir-secret-sharing-15704166b8be
