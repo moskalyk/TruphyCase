@@ -21,13 +21,21 @@ Flow:
 * (optional) Users would 'claim' if they get an award
 
 Output:
-### TruphCase Interface
+### TruphCaseJS
 * Mint Trophies based on Operator / Game Owner
 * Interface that lists all trophies / Leaderboard.
 * Can filter trophies based on game (e.g. range 1-10)
 * Can groupby User to view Assigned Badges
 
-### TruphyCaseJS Module (Possible?)
+### TruphyCase Contracts
+TODOs
+- [ ] Referencing Specific Trophy: E.g. First Place, can be minted to multiple people, and easily referenced.
+- [ ] Transferability
+- [ ] Enumberable Tests
+- [ ] Token Metadata Tests
+- [ ] Storage abstracted (to not be affected by upgradeability via Libraries), possible use of a library?
+
+### TruphyCaseJS Module (Possible?) -- 
 * Publish npm Module that can assign users
 ```
 //Returns a boolean to confirm that the trophy has been assigned
