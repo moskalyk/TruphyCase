@@ -1,9 +1,11 @@
-# TruphyCase
+# 🏆 TruphyCase 🏆 
+
+### ** This repo is still a work in progress.
 
 Possible Standard around
-* Non-Fungible and Non-Tradeable tokens. Authority would be issue and revoke trophies (based on type)
+* Non-Fungible and Non-Transferable tokens. Authority would be issue and revoke trophies (based on type). Each trophy representation an abstract representation of some peice of 'Reputation'.
 
-e.g. 
+### Possible Use Cases
 * 'Top 10' = Revokable.
 * 'Scarce / Unique' = Non-Tradeable. Owned for eterenity.
 * 'Progress Based Trophies'
@@ -19,13 +21,13 @@ Flow:
 * (optional) Users would 'claim' if they get an award
 
 Output:
-Interface
+### TruphCase Interface
 * Mint Trophies based on Operator / Game Owner
 * Interface that lists all trophies / Leaderboard.
 * Can filter trophies based on game (e.g. range 1-10)
 * Can groupby User to view Assigned Badges
 
-NPM Module
+### TruphyCaseJS Module (Possible?)
 * Publish npm Module that can assign users
 ```
 //Returns a boolean to confirm that the trophy has been assigned
