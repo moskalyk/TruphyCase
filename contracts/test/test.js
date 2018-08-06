@@ -3,6 +3,7 @@ const abi = require('ethereumjs-abi');
 
 let owner;
 let recipient;
+let adversary;
 let truphyCase;
 let contractAddress;
 
