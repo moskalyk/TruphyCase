@@ -13,5 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "openzeppelin-solidity": "1.10.0"
+  },
+  "devDependencies": {
+    "ethereumjs-abi": "^0.6.5"
   }
 }
