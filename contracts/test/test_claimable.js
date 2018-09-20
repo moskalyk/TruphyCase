@@ -10,7 +10,7 @@ let contractAddress;
 // Message Details
 let signature;
 const tokenURI = 'ipfs.io/ipfs/QmctaQSPHB3woeZ2RTbGBCWRB75uLjtGZdeefT6GtHfNig'
-const nonce = 1;
+const nonce = 0;
 
 contract('TruphyCase', (accounts) => {
 
@@ -31,10 +31,10 @@ contract('TruphyCase', (accounts) => {
 	});
 
 	it('should allow a recipient to claim a trophy with a signed message', async () => {
-		const resCall = await truphyCase.claimTrophy.call(tokenURI, nonce, signature, {from: recipient});
+		const resCall = await truphyCase.claimTrophy.call(tokenURI, signature, {from: recipient});
 		assert(resCall);
 		
-		await truphyCase.claimTrophy(tokenURI, nonce, signature, {from: recipient});
+		await truphyCase.claimTrophy(tokenURI, signature, {from: recipient});
 	});
 
 	it('should have a balance of 1 after claiming a trophy', async () => {
@@ -44,7 +44,7 @@ contract('TruphyCase', (accounts) => {
 
 	it('should fail if a recipient should decide to reuse a signed message', async () => {
 		try{
-			const resCall = await truphyCase.claimTrophy.call(tokenURI, nonce, signature, {from: recipient});
+			const resCall = await truphyCase.claimTrophy.call(tokenURI, signature, {from: recipient});
 		}catch(e){
 			assert(true, "A recipient was able to reuse.");
 		}
@@ -53,7 +53,7 @@ contract('TruphyCase', (accounts) => {
 	it('should fail if we create a new contract, and used the same signed message', async () => {
 		truphyCase2 = await TruphyCase.new("Test", "test");
 		try{
-			await truphyCase2.claimTrophy.call(tokenURI, nonce, signature, {from: recipient});
+			await truphyCase2.claimTrophy.call(tokenURI, signature, {from: recipient});
 		}catch(e){
 			assert(true);
 		}
@@ -69,15 +69,15 @@ contract('TruphyCase', (accounts) => {
 
 	it('should fail if an adversary attempts to claim trophy with a signed message', async () => {
 		try{
-			const resCall = await truphyCase.claimTrophy.call(tokenURI, nonce, signature, {from: adversary});
+			const resCall = await truphyCase.claimTrophy.call(tokenURI, signature, {from: adversary});
 		}catch(e){
 			assert(true);
 		}
 	});
 
 	it('should return the gas estimation of minting a trophy', async () => {
-		const newNonce = 2;
-		const ethPrice = 500;
+		const newNonce = 1;
+		const ethPrice = 250;
 		
 		// Create Hashed Message
 		const hash = "0x" + abi.soliditySHA3([
@@ -92,10 +92,8 @@ contract('TruphyCase', (accounts) => {
 			const estimateGasAssigning = await truphyCase.assignTrophy.estimateGas(recipient, tokenURI);
 			console.log(`Gas Cost Estimation of Assigning: $${TruphyCase.web3.fromWei((gasPrice * estimateGasAssigning) * ethPrice, 'ether')} USD`);
 
-			const estimateGasClaim = await truphyCase.claimTrophy.estimateGas(tokenURI, newNonce, newSignature, {from: recipient});
+			const estimateGasClaim = await truphyCase.claimTrophy.estimateGas(tokenURI, newSignature, {from: recipient});
 			console.log(`Gas Cost Estimation of Claiming: $${TruphyCase.web3.fromWei((gasPrice * estimateGasClaim) * ethPrice, 'ether')} USD`);
-			console.log(`Gas Cost Estimation of Claiming: $${TruphyCase.web3.fromWei((gasPrice * 2000) * ethPrice, 'ether')} USD`);
-			console.log(`Gas Cost Estimation of Claiming: $${TruphyCase.web3.fromWei((gasPrice * 20000000) * ethPrice, 'ether')} USD`);
 			
 			assert(true);
 		});

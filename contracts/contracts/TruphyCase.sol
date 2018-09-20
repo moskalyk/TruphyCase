@@ -1,7 +1,6 @@
 pragma solidity ^0.4.24;
 
 import "./ITruphyCase.sol";
-
 import 'openzeppelin-solidity/contracts/ECRecovery.sol';
 import 'openzeppelin-solidity/contracts/ownership/Ownable.sol';
 
@@ -9,16 +8,12 @@ contract Claimable is Ownable {
 
   using ECRecovery for bytes32;
   
-  mapping(uint256 => bool) nonces_;
+  mapping(address => uint) public nonces_;
 
-  function claim(string _tokenURI, uint256 _nonce, bytes _sig, address _contractAddress) public returns(bool) {
+  function claim(string _tokenURI, bytes _sig, address _contractAddress) public returns(bool) {
     
-    // Make sure the nonce is not used
-    require(!nonces_[_nonce]);
-    nonces_[_nonce] = true;
-
     // Recreate the message, which also confirms the msg.sender matches the arguments in the signature
-    bytes32 message = keccak256(abi.encodePacked(msg.sender, _tokenURI, _nonce, _contractAddress));
+    bytes32 message = keccak256(abi.encodePacked(msg.sender, _tokenURI, nonces_[msg.sender]++, _contractAddress));
     bytes32 preFixedMessage = message.toEthSignedMessageHash();
     
     // Confirm the signature came from the owner, same as web3.eth.sign(...)
@@ -29,12 +24,20 @@ contract Claimable is Ownable {
 
 }
 
-// Not Fully ERC721 Compliant - For demo purposes
+// Not Fully ERC721 Compliant 
 contract TruphyCase is ITruphyCase, Claimable {
 
-  constructor(string _name, string _symbol) {}
+  string public name;
+  string public symbol;
 
-  event Mint(address _to, string _tokenURI);
+  constructor(string _name, string _symbol) {
+    name = _name;
+    symbol = _symbol;
+  }
+
+  event Mint(address indexed _to, string _tokenURI, uint _tokenId, uint indexed _mintType);
+
+  enum MintType { CLAIMED, ISSUED }
 
   // Token Owner
   mapping (uint256 => address) internal tokenOwner;
@@ -51,8 +54,8 @@ contract TruphyCase is ITruphyCase, Claimable {
   // operatorApprovals
   mapping (address => mapping (address => bool)) internal operatorApprovals;
 
-  // All nonTransferable tokens
-  mapping (uint => bool) internal nonTransferable;
+  mapping (string => address[]) trophyTokenOwners;
+  
 
   /**
    * @dev Checks msg.sender can transfer a token, by being owner, approved, or operator
@@ -61,14 +64,14 @@ contract TruphyCase is ITruphyCase, Claimable {
   modifier canTransfer(uint _tokenId) {
 
     // Is an Operator, or, can be transferred
-    require(isApprovedForAll(ownerOf(_tokenId), msg.sender) || nonTransferable[_tokenId] != true);
+    require(isApprovedForAll(ownerOf(_tokenId), msg.sender));
     _;
   }
 
   /**
    * @dev Tells whether an operator is approved by a given owner
-   * @param _owner owner address which you want to query the approval of
-   * @param _operator operator address which you want to query the approval of
+   * @param _owner    address   which you want to query the approval of
+   * @param _operator address   operator address which you want to query the approval of
    * @return bool whether the given operator is approved by the given owner
    */
   function isApprovedForAll(
@@ -83,20 +86,17 @@ contract TruphyCase is ITruphyCase, Claimable {
   }
 
    /**
-   * @dev Mints an ERC721 token using a token URI
-   * @param _recipientAddr address the recipient who will recieve the token
-   * @param _tokenURI string the string of where the tokenURI is held
-   * @param _tokenId uint the uint of the token
+   * @dev Mints an NFT using a token URI
+   * @param _recipientAddr    address     the recipient who will recieve the token
+   * @param _tokenURI         string      the string of where the tokenURI is held
+   * @param _tokenId          uint        the uint of the token
    * @return bool whether token was minted
    */
-  function mint(address _recipientAddr, string _tokenURI, uint _tokenId) internal returns (bool){
+  function _mint(address _recipientAddr, string _tokenURI, uint _tokenId, uint _mintType) internal returns (bool){
 
     // Updating indexes
     ownerTokenIndexes[_recipientAddr].push(_tokenId);
     tokensByIndex.push(_tokenId);
-
-    // non transferable trophy
-    nonTransferable[_tokenId] = false;
 
     // Added for Metadata Extension
     tokenURIByIndex[_tokenId] = _tokenURI;
@@ -104,77 +104,89 @@ contract TruphyCase is ITruphyCase, Claimable {
     // tokenOwner
     tokenOwner[_tokenId] = _recipientAddr;
 
+    // Token recipient
+    trophyTokenOwners[_tokenURI].push(_recipientAddr);
+
     // Log the Event
-    emit Mint(_recipientAddr, _tokenURI);
+    emit Mint(_recipientAddr, _tokenURI, _tokenId, _mintType);
 
     return true;
   }
-
 
   /**
    * @dev Claims a trophy / token that is assigned via a message signature
-   * @param _tokenURI string the string of where the tokenURI is held
-   * @param _nonce uint to track the unique number
-   * @param _sig bytes signature of the message
-   * @return bool whether token was claimed
+   * @param _tokenURI string  the string of where the tokenURI is held
+   * @param _sig      bytes   signature of the message
+   * @return bool             whether token was claimed
    */
-  function claimTrophy(string _tokenURI, uint256 _nonce, bytes _sig) public returns (bool) {
+  function claimTrophy(string _tokenURI, bytes _sig) public returns (bool) {
 
-    // Enusre's that the owner cant claim trophies for themselves
-    require (msg.sender != owner);
+    // Ensure's that the owner cant claim trophies for themselves
+    require (msg.sender != owner, "Sender is the owner of the contract");
 
     // Claim and record the nonce
-    require(super.claim(_tokenURI, _nonce, _sig, address(this)));
+    require(super.claim(_tokenURI, _sig, address(this)), "Signature is invalid");
 
     // Mint
-    mint(msg.sender, _tokenURI, tokensByIndex.length + 1 );
+    _mint(msg.sender, _tokenURI, tokensByIndex.length + 1, uint(MintType.CLAIMED));
 
     return true;
   }
 
   /**
-   * @dev Assigns from an owner to a trophy id
-   * @param _recipientAddr address the recipient who will recieve the token
-   * @param _tokenURI string the string of where the tokenURI is held
-   * @return bool whether token was claimed
+   * @dev Assigns a user a trophy using a minting function
+   * @param _recipientAddr address  the recipient who will recieve the token
+   * @param _tokenURI      string   the string of where the tokenURI is held
+   * @return bool whether token was assigned
    */
-  function assignTrophy(address _recipientAddr, string _tokenURI) public returns (bool) {
-
-    // Ensure's that the owner is 
-    require (msg.sender == owner);
+  function assignTrophy(address _recipientAddr, string _tokenURI) onlyOwner() returns (bool) {
     
     // Mint
-    mint(_recipientAddr, _tokenURI, tokensByIndex.length + 1 );
+    _mint(_recipientAddr, _tokenURI, tokensByIndex.length + 1, uint(MintType.ISSUED));
 
     return true;
   }
 
-  function issueTrophy(string _tokenURI) onlyOwner() returns (bool) {
-
-    // Mint Trophy
-    mint(msg.sender, _tokenURI, tokensByIndex.length + 1 );
-
-    return true;
+  /**
+   * @dev Returns the address the tokens are minted to
+   * @param _tokenURI string the string of where the tokenURI is held
+   * @return address[] list of addresses the trophies are minted to
+   */  
+  function trophyOfTokenOwners(string _tokenURI) public returns(address[]) {
+    return trophyTokenOwners[_tokenURI];
   }
 
   /// Token Metadata Extension
-
+  /**
+   * @dev Returns the name
+   * @return string name 
+   */ 
   function name() external view returns (string _name){
       _name = _name;
   }
 
+  /**
+   * @dev Returns the symbol
+   * @return string symbol 
+   */ 
   function symbol() external view returns (string _symbol){
       _symbol = _symbol;
   }
 
+  /**
+   * @dev Returns the tokenUri
+   * @return string _tokenUri 
+   */ 
   function tokenURI(uint256 _tokenId) external view returns (string){
     require (_tokenId < tokensByIndex.length);
     return tokenURIByIndex[_tokenId];
   }
 
-  
   /// Token Enumerable Extension
-
+  /*
+   * @dev Returns total supply
+   * @returns uint count of supply
+  */
   function totalSupply() returns (uint){
     return tokensByIndex.length;
   }
@@ -199,15 +211,6 @@ contract TruphyCase is ITruphyCase, Claimable {
     require(_index < ownerTokenIndexes[_owner].length);
     require (_owner != address(0));
     return ownerTokenIndexes[_owner][_index];
-  }
-  
-  /*
-   * @dev Throw due to the fact that the trophy cannot be transferred
-   * @param _from current owner of the token
-   * @param _to address to receive the ownership of the given token ID
-   * @param _tokenId uint256 ID of the token to be transferred
-  */
-  function transferFrom(address _from, address _to, uint256 _tokenId) canTransfer(_tokenId) public  {
   }
 
   // Basic ERC721 Functions
@@ -242,6 +245,5 @@ contract TruphyCase is ITruphyCase, Claimable {
     address owner = tokenOwner[_tokenId];
     return owner != address(0);
   }
-
 
 }
